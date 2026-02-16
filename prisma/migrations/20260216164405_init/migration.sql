@@ -62,6 +62,9 @@ CREATE TABLE "verification" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+
+-- CreateIndex
 CREATE INDEX "session_userId_idx" ON "session"("userId");
 
 -- CreateIndex

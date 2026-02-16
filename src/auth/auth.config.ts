@@ -37,7 +37,7 @@ export const auth = betterAuth({
         type: 'string',
         required: true,
         defaultValue: 'patient',
-        input: true,
+        input: false,
       },
       imageCldPubId: {
         type: 'string',
