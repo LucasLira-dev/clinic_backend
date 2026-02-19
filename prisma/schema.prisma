@@ -19,6 +19,23 @@ enum Role {
   admin
 }
 
+enum DayOfWeek {
+  SEGUNDA
+  TERCA
+  QUARTA
+  QUINTA
+  SEXTA
+  SABADO
+  DOMINGO
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELED
+  NO_SHOW
+}
+
 model User {
   id             String    @id
   name           String
@@ -27,24 +44,30 @@ model User {
   image          String?
   role           Role      @default(patient)
   imageCldPubId  String?
+  banned         Boolean?  @default(false)
+  banReason      String?
+  banExpires     DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
+  appointments Appointment[]
   sessions       Session[]
   accounts       Account[]
+  doctorProfile  DoctorProfile?
 }
 
 
 model Session {
-  id        String   @id
-  expiresAt DateTime
-  token     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  ipAddress String?
-  userAgent String?
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String   @id
+  expiresAt      DateTime
+  token          String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  ipAddress      String?
+  userAgent      String?
+  userId         String
+  impersonatedBy String?
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([token])
   @@index([userId])
@@ -81,4 +104,79 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+model Specialty {
+  id                String             @id @default(cuid())
+  name              String             @unique
+  description       String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  
+  doctorSpecialties DoctorSpecialty[]
+
+  @@index([name])
+}
+
+model DoctorProfile {
+  id                String             @id @default(cuid())
+  userId            String             @unique
+  fullName          String
+  crm               String             @unique
+  biography         String?
+  profilePhoto      String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointments      Appointment[]
+  specialties       DoctorSpecialty[]
+  workingDays       DoctorWorkingDay[]
+
+  @@index([userId])
+  @@index([crm])
+}
+
+model DoctorWorkingDay {
+  id              String        @id @default(cuid())
+  doctorProfileId String
+  dayOfWeek       DayOfWeek
+  createdAt       DateTime      @default(now())
+
+  doctorProfile   DoctorProfile @relation(fields: [doctorProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorProfileId, dayOfWeek])
+  @@index([doctorProfileId])
+}
+
+model DoctorSpecialty {
+  id              String        @id @default(cuid())
+  doctorProfileId String
+  specialtyId     String
+  isPrimary       Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+
+  doctorProfile   DoctorProfile @relation(fields: [doctorProfileId], references: [id], onDelete: Cascade)
+  specialty       Specialty     @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorProfileId, specialtyId])
+  @@index([doctorProfileId])
+  @@index([specialtyId])
+}
+
+model Appointment {
+  id String @id @default(cuid())
+  doctorProfileId String
+  patientId String
+  appointmentDay DateTime
+  createdAt DateTime @default(now()) 
+  updatedAt DateTime @updatedAt
+  status AppointmentStatus @default(SCHEDULED)
+
+  doctorProfile DoctorProfile @relation(fields: [doctorProfileId], references: [id], onDelete: Cascade)
+  patient User @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorProfileId, appointmentDay])
+  @@unique([patientId, appointmentDay])
+  @@index([patientId])
 }
