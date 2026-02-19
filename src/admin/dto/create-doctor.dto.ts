@@ -1,4 +1,10 @@
-import { IsEmail, IsString, IsArray, IsOptional, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  IsArray,
+  IsOptional,
+  MinLength,
+} from 'class-validator';
 
 export class CreateDoctorDto {
   @IsString()
@@ -10,6 +16,10 @@ export class CreateDoctorDto {
 
   @IsEmail()
   email: string;
+
+  @IsString()
+  @MinLength(8)
+  senha: string;
 
   @IsString()
   @IsOptional()

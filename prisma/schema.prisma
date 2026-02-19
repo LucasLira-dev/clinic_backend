@@ -115,7 +115,6 @@ model Specialty {
   
   doctorSpecialties DoctorSpecialty[]
 
-  @@index([name])
 }
 
 model DoctorProfile {
@@ -173,8 +172,8 @@ model Appointment {
   updatedAt DateTime @updatedAt
   status AppointmentStatus @default(SCHEDULED)
 
-  doctorProfile DoctorProfile @relation(fields: [doctorProfileId], references: [id], onDelete: Cascade)
-  patient User @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctorProfile DoctorProfile @relation(fields: [doctorProfileId], references: [id], onDelete: Restrict)
+  patient User @relation(fields: [patientId], references: [id], onDelete: Restrict)
 
   @@unique([doctorProfileId, appointmentDay])
   @@unique([patientId, appointmentDay])
