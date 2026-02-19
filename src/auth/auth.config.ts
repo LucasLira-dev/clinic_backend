@@ -1,9 +1,12 @@
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
+import { admin } from 'better-auth/plugins';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import 'dotenv/config';
+
+type Role = 'admin' | 'patient' | 'doctor';
 
 // Configurar pool de conexões para Neon
 const connectionString = process.env.DATABASE_URL;
@@ -66,6 +69,11 @@ export const auth = betterAuth({
   basePath: '/api/auth',
   baseURL: process.env.BETTER_AUTH_URL,
   secret: process.env.BETTER_AUTH_SECRET,
-
+  plugins: [
+    admin({
+      defaultRole: 'patient' as Role,
+      adminRoles: ['admin'] as Role[],
+    }),
+  ],
   hooks: {},
 });
