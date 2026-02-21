@@ -46,7 +46,6 @@ export class AppointmentsService {
   }
 
   async getDoctorDetails(doctorId: string) {
-    // Busca detalhes do médico, incluindo dias e horários de trabalho
     const doctor = await this.prisma.doctorProfile.findUnique({
       where: { id: doctorId },
       select: {
@@ -76,7 +75,6 @@ export class AppointmentsService {
 
     if (!doctor) return null;
 
-    // Monta um mapa dos dias de trabalho e horários
     const workingDaysMap = new Map();
     for (const wd of doctor.workingDays) {
       workingDaysMap.set(wd.dayOfWeek, {
@@ -91,13 +89,22 @@ export class AppointmentsService {
   }
 
   async getDoctorAvailableSlots(doctorId: string, date: string) {
+
+    if (!date) {
+      throw new BadRequestException('Data é obrigatória');
+    }
+
     const parsedDate = parseISO(date);
+    
+    if (isNaN(parsedDate.getTime())) {
+     throw new BadRequestException('Data inválida. Use o formato YYYY-MM-DD.');
+    }
 
     // Interpreta a data como sendo de São Paulo
     const utcDate = fromZonedTime(parsedDate, BRAZIL_TZ);
 
-    const startDayUTC = startOfDay(utcDate);
-    const endDayUTC = endOfDay(utcDate);
+    const startDayUTC = fromZonedTime(startOfDay(parsedDate), BRAZIL_TZ);
+    const endDayUTC = fromZonedTime(endOfDay(parsedDate), BRAZIL_TZ);
 
     const todayUTC = new Date();
     const isToday = isSameDay(
@@ -138,7 +145,7 @@ export class AppointmentsService {
     const slots: Date[] = [];
 
     let current = new Date(startDayUTC); // Começa do início do dia solicitado
-    current.setHours(
+    current.setUTCHours(
       workingDay.startTime.getUTCHours(),
       workingDay.startTime.getUTCMinutes(),
       0,
@@ -146,7 +153,7 @@ export class AppointmentsService {
     );
 
     const endTime = new Date(startDayUTC);
-    endTime.setHours(
+    endTime.setUTCHours(
       workingDay.endTime.getUTCHours(),
       workingDay.endTime.getUTCMinutes(),
       0,
@@ -195,121 +202,4 @@ export class AppointmentsService {
       slots: formattedSlots,
     };
   }
-
-  // async getDoctorAvailableSlots(doctorId: string, date: string) {
-  //   // Ignora a hora e usa sempre o horário local de Brasília (GMT-3) para calcular o dia da semana
-  //   const inputDate = new Date(date);
-  //   // Cria uma data só com ano, mês e dia, no horário de Brasília
-  //   const requestedDate = new Date(Date.UTC(
-  //     inputDate.getUTCFullYear(),
-  //     inputDate.getUTCMonth(),
-  //     inputDate.getUTCDate(),
-  //     3, 0, 0 // 03:00 UTC = 00:00 GMT-3
-  //   ));
-
-  //   const now = new Date();
-  //   const isSameDay =
-  //     requestedDate.getUTCFullYear() === now.getUTCFullYear() &&
-  //     requestedDate.getUTCMonth() === now.getUTCMonth() &&
-  //     requestedDate.getUTCDate() === now.getUTCDate();
-
-  //   // Calcula o dia da semana no horário de Brasília
-  //   const brDate = new Date(requestedDate.getTime() - 3 * 60 * 60 * 1000);
-  //   const dayNumber = brDate.getUTCDay();
-  //   const dayMap: Record<number, string> = {
-  //     0: 'DOMINGO',
-  //     1: 'SEGUNDA',
-  //     2: 'TERCA',
-  //     3: 'QUARTA',
-  //     4: 'QUINTA',
-  //     5: 'SEXTA',
-  //     6: 'SABADO',
-  //   };
-  //   const dayOfWeek = dayMap[dayNumber];
-
-  //   const doctor = await this.prisma.doctorProfile.findFirst({
-  //     where: { id: doctorId },
-  //     include: {
-  //       workingDays: true,
-  //     },
-  //   });
-
-  //   if (!doctor) {
-  //     throw new NotFoundException('Médico não encontrado');
-  //   }
-
-  //   const workingDay = doctor.workingDays.find(
-  //     (d) => d.dayOfWeek === dayOfWeek,
-  //   );
-
-  //   if (!workingDay) {
-  //     return [];
-  //   }
-
-  //   // Gerar slots de 30 em 30 minutos entre startTime e endTime, usando o dia solicitado
-  //   const slots: Date[] = [];
-  //   const startTime = new Date(workingDay.startTime);
-  //   const endTime = new Date(workingDay.endTime);
-
-  //   // Usa horário UTC salvo no banco para garantir horário correto
-  //   const start = new Date(requestedDate);
-  //   start.setHours(startTime.getUTCHours(), startTime.getUTCMinutes(), 0, 0);
-  //   const end = new Date(requestedDate);
-  //   end.setHours(endTime.getUTCHours(), endTime.getUTCMinutes(), 0, 0);
-
-  //   const current = new Date(start);
-  //   while (current < end) {
-  //     slots.push(new Date(current));
-  //     current.setMinutes(current.getMinutes() + 30);
-  //   }
-
-  //   // Buscar appointments do médico para o dia
-  //   const startOfDay = new Date(requestedDate);
-  //   startOfDay.setHours(0, 0, 0, 0);
-  //   const endOfDay = new Date(requestedDate);
-  //   endOfDay.setHours(23, 59, 59, 999);
-
-  //   const appointments = await this.prisma.appointment.findMany({
-  //     where: {
-  //       doctorProfileId: doctorId,
-  //       appointmentDay: {
-  //         gte: startOfDay,
-  //         lte: endOfDay,
-  //       },
-  //       status: {
-  //         notIn: [AppointmentStatus.CANCELED],
-  //       },
-  //     },
-  //   });
-
-  //   // Filtrar slots já marcados
-  //   const bookedTimes = appointments.map((a) => a.appointmentDay.getTime());
-  //   const availableSlots = slots.filter(
-  //     (slot) => !bookedTimes.includes(slot.getTime())
-  //   );
-
-  //   let filteredSlots = availableSlots;
-
-  //   if (isSameDay) {
-  //     const nowUTC = new Date();
-  //     const nowBR = new Date(nowUTC.getTime() - 3 * 60 * 60 * 1000);
-  //     filteredSlots = availableSlots.filter((slot) => {
-  //       // slot também precisa ser comparado no horário de Brasília
-  //       const slotBR = new Date(slot.getTime() - 3 * 60 * 60 * 1000);
-  //       return slotBR > nowBR;
-  //     });
-  //   }
-
-  //   // Retornar apenas os horários no formato HH:mm
-  //   const formattedSlots = filteredSlots.map((slot) => {
-  //     const hours = slot.getHours().toString().padStart(2, '0');
-  //     const minutes = slot.getMinutes().toString().padStart(2, '0');
-  //     return `${hours}:${minutes}`;
-  //   });
-
-  //   return {
-  //     date: requestedDate,
-  //     slots: formattedSlots,
-  //   };
-  // }
 }
