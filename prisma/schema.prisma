@@ -140,6 +140,8 @@ model DoctorWorkingDay {
   id              String        @id @default(cuid())
   doctorProfileId String
   dayOfWeek       DayOfWeek
+  startTime   DateTime
+  endTime   DateTime
   createdAt       DateTime      @default(now())
 
   doctorProfile   DoctorProfile @relation(fields: [doctorProfileId], references: [id], onDelete: Cascade)
@@ -147,6 +149,7 @@ model DoctorWorkingDay {
   @@unique([doctorProfileId, dayOfWeek])
   @@index([doctorProfileId])
 }
+
 
 model DoctorSpecialty {
   id              String        @id @default(cuid())
