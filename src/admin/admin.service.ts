@@ -62,7 +62,9 @@ export class AdminService {
             where: { name: especialidadeNome },
           });
           if (!specialty) {
-            specialty = await tx.specialty.create({ data: { name: especialidadeNome } });
+            specialty = await tx.specialty.create({
+              data: { name: especialidadeNome },
+            });
           }
           await tx.doctorSpecialty.create({
             data: {
@@ -78,6 +80,8 @@ export class AdminService {
             data: {
               doctorProfileId: profile.id,
               dayOfWeek: dia as $Enums.DayOfWeek,
+              startTime: new Date(`1970-01-01T${dto.startTime}:00Z`),
+              endTime: new Date(`1970-01-01T${dto.endTime}:00Z`),
             },
           });
         }
@@ -100,14 +104,24 @@ export class AdminService {
       console.error('Erro ao criar médico:', error);
       if (error instanceof BadRequestException) throw error;
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        throw new BadRequestException('Erro de banco de dados ao criar médico.');
+        throw new BadRequestException(
+          'Erro de banco de dados ao criar médico.',
+        );
       }
 
-      throw new BadRequestException('Erro ao criar médico. Por favor, tente novamente.');
+      throw new BadRequestException(
+        'Erro ao criar médico. Por favor, tente novamente.',
+      );
     }
   }
 
   async listUsers(role: string) {
+    if (role !== 'doctors' && role !== 'patients') {
+      throw new BadRequestException(
+        'Role inválida. Use "doctors" ou "patients".',
+      );
+    }
+
     if (role === 'doctors') {
       const [users, total] = await this.prisma.$transaction([
         this.prisma.doctorProfile.findMany({
@@ -160,6 +174,12 @@ export class AdminService {
 
     if (!user) {
       throw new BadRequestException('Usuário não encontrado');
+    }
+
+    if (user.role === 'admin') {
+      throw new BadRequestException(
+        'Não é permitido remover usuários com role admin',
+      );
     }
 
     await this.prisma.user.delete({ where: { id: userId } });

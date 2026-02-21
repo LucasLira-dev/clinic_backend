@@ -36,4 +36,10 @@ export class CreateDoctorDto {
   @IsArray()
   @IsString({ each: true })
   diasAtendimento: string[]; // Array de dias: ["SEGUNDA", "QUARTA"]
+
+  @IsString()
+  startTime: string; // Horário de início, ex: "08:00"
+
+  @IsString()
+  endTime: string; // Horário de término, ex: "17:00"
 }
