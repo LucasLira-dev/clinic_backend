@@ -31,6 +31,12 @@ export class AdminService {
         throw new BadRequestException('Já existe um médico com este CRM');
       }
 
+      if (dto.startTime >= dto.endTime) {
+        throw new BadRequestException(
+          'Horário de início deve ser antes do horário de término',
+        );
+      }
+
       const userResult = await auth.api.createUser({
         body: {
           email: dto.email,
@@ -76,12 +82,17 @@ export class AdminService {
         }
 
         for (const dia of dto.diasAtendimento) {
+          const [startHour, startMinute] = dto.startTime.split(':').map(Number);
+          const [endHour, endMinute] = dto.endTime.split(':').map(Number);
+
           await tx.doctorWorkingDay.create({
             data: {
               doctorProfileId: profile.id,
               dayOfWeek: dia as $Enums.DayOfWeek,
-              startTime: new Date(`1970-01-01T${dto.startTime}:00Z`),
-              endTime: new Date(`1970-01-01T${dto.endTime}:00Z`),
+              startHour,
+              startMinute,
+              endHour,
+              endMinute,
             },
           });
         }

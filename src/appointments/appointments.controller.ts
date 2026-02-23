@@ -1,11 +1,25 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Post, Query, UseGuards, Body } from '@nestjs/common';
 import { AppointmentsService } from './appointments.service';
 import { PatientGuard } from './guards/patient.guard';
+import { CreateAppointmentDto } from './dto/create-appointment.dto';
+import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
 @UseGuards(PatientGuard)
 @Controller('appointments')
 export class AppointmentsController {
   constructor(private readonly appointmentsService: AppointmentsService) {}
+
+  @Post('book')
+  async bookAppointment(
+    @Body() createAppointmentDto: CreateAppointmentDto,
+    @Session() session: UserSession,
+  ) {
+    const patientId = session.user.id;
+    return this.appointmentsService.bookAppointment(
+      createAppointmentDto,
+      patientId,
+    );
+  }
 
   @Get('doctors')
   async getDoctors() {
@@ -21,7 +35,9 @@ export class AppointmentsController {
   async getDoctorAvailableSlots(
     @Param('id') doctorId: string,
     @Query('date') date: string,
-  ) {
-    return this.appointmentsService.getDoctorAvailableSlots(doctorId, date);
+    @Session() session: UserSession,
+  ) {4
+    const patientId = session.user.id;
+    return this.appointmentsService.getDoctorAvailableSlots(doctorId, date, patientId);
   }
 }
