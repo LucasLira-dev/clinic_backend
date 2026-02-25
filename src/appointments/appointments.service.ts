@@ -10,8 +10,6 @@ import { parseISO, addMinutes, isSameDay, isAfter, format } from 'date-fns';
 
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
-import { Role } from '@prisma/client';
-import { profile } from 'console';
 
 const BRAZIL_TZ = 'America/Sao_Paulo';
 
@@ -517,16 +515,17 @@ export class AppointmentsService {
 
 
   async completeAppointment(appointmentId: string, doctorId: string, userRole: string){
+
+    if (userRole !== 'doctor') {
+      throw new BadRequestException('Apenas médicos podem completar consultas');
+    }
+
     const profile = await this.prisma.doctorProfile.findUnique({
       where: { userId: doctorId },
     })
 
     if (!profile) {
       throw new NotFoundException('Perfil de médico não encontrado para este usuário');
-    }
-
-    if (userRole !== 'doctor') {
-      throw new BadRequestException('Apenas médicos podem completar consultas');
     }
 
     const appointment = await this.prisma.appointment.findFirst({
