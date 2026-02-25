@@ -31,8 +31,14 @@ export class AppointmentsService {
   async bookAppointment(dto: CreateAppointmentDto, patientId: string) {
     const doctor = await this.prisma.doctorProfile.findUnique({
       where: { id: dto.doctorId },
-      include: {
+      select: {
         workingDays: true,
+        user: {
+          select: {
+            email: true,
+            name: true,
+          },
+        },
       },
     });
     if (!doctor) {
@@ -92,9 +98,15 @@ export class AppointmentsService {
     }
 
     const localStart = new Date(`${dto.date}T${dto.time}:00`);
-    const appointmentDay = fromZonedTime(localStart, BRAZIL_TZ); 
-    const startDayUTC = fromZonedTime(new Date(`${dto.date}T00:00:00`), BRAZIL_TZ);
-    const endDayUTC = fromZonedTime(new Date(`${dto.date}T23:59:59`), BRAZIL_TZ);
+    const appointmentDay = fromZonedTime(localStart, BRAZIL_TZ);
+    const startDayUTC = fromZonedTime(
+      new Date(`${dto.date}T00:00:00`),
+      BRAZIL_TZ,
+    );
+    const endDayUTC = fromZonedTime(
+      new Date(`${dto.date}T23:59:59`),
+      BRAZIL_TZ,
+    );
 
     const appointmentsWithDoctorOnDay = await this.prisma.appointment.count({
       where: {
@@ -219,7 +231,11 @@ export class AppointmentsService {
     };
   }
 
-  async getDoctorAvailableSlots(doctorId: string, date: string, patientId: string) {
+  async getDoctorAvailableSlots(
+    doctorId: string,
+    date: string,
+    patientId: string,
+  ) {
     if (!date) {
       throw new BadRequestException('Data é obrigatória');
     }
@@ -323,5 +339,230 @@ export class AppointmentsService {
       slots: formattedSlots,
       canAppoint: canAppoint,
     };
+  }
+
+  async getMyAppointments(
+    userId: string,
+    filter: 'upcoming' | 'completed' | 'all' | 'canceled',
+    role: string,
+  ) {
+    let baseWhere: any = {};
+    let include: any = {};
+
+    if (role === 'patient') {
+      baseWhere = { patientId: userId };
+      include = {
+        doctorProfile: {
+          select: {
+            fullName: true,
+            specialties: {
+              select: {
+                isPrimary: true,
+                specialty: { select: { name: true } },
+              },
+            },
+          },
+        },
+      };
+    } else if (role === 'doctor') {
+      const profile = await this.prisma.doctorProfile.findUnique({
+        where: { userId },
+        select: { id: true },
+      });
+
+      if (!profile)
+        throw new NotFoundException(
+          'Perfil de médico não encontrado para este usuário',
+        );
+
+      baseWhere = { doctorProfileId: profile.id };
+      include = {
+        patient: { select: { id: true, name: true } },
+      };
+    } else {
+      throw new BadRequestException('Role inválida');
+    }
+
+    const now = new Date();
+    const whereByFilter =
+      filter === 'all'
+        ? {}
+        : filter === 'upcoming'
+          ? {
+              appointmentDay: { gt: now },
+              status: { notIn: [AppointmentStatus.CANCELED] },
+            }
+          : filter === 'completed'
+            ? {
+                appointmentDay: { lte: now },
+                status: AppointmentStatus.COMPLETED,
+              }
+            : filter === 'canceled'
+              ? { status: AppointmentStatus.CANCELED }
+              : (() => {
+                  throw new BadRequestException('Filtro inválido');
+                })();
+
+    const orderBy =
+      filter === 'upcoming'
+        ? { appointmentDay: 'asc' as const }
+        : { appointmentDay: 'desc' as const };
+
+    return this.prisma.appointment.findMany({
+      where: { ...baseWhere, ...whereByFilter },
+      include,
+      orderBy,
+    });
+  }
+
+  async getAppointmentDetails(appointmentId: string, userId: string, role: string) {
+    let whereByRole: Record<string, string> = {};
+
+    if (role === 'patient') {
+      whereByRole = { patientId: userId };
+    } else if (role === 'doctor') {
+      const profile = await this.prisma.doctorProfile.findUnique({
+        where: { userId },
+        select: { id: true },
+      });
+
+      if (!profile)
+        throw new NotFoundException(
+          'Perfil de médico não encontrado para este usuário',
+        );
+
+      whereByRole = { doctorProfileId: profile.id };
+    } else {
+      throw new BadRequestException('Role inválida');
+    }
+
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { ...whereByRole, id: appointmentId },
+      include: {
+        doctorProfile: {
+          select: {
+            fullName: true,
+            profilePhoto: true,
+            crm: true,
+            specialties: {
+              select: {
+                isPrimary: true,
+                specialty: { select: { name: true } },
+              },
+            },
+          },
+        },
+        patient: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Consulta não encontrada');
+    }
+
+    return appointment;
+  }
+
+  async cancelAppointment(appointmentId: string, userId: string, userRole: string) {
+
+    let whereByRole: Record<string, string> = {};
+
+    if (userRole === 'patient') {
+      whereByRole = { patientId: userId };
+    } else if (userRole === 'doctor') {
+      const profile = await this.prisma.doctorProfile.findUnique({
+        where: { userId },
+      })
+      if (!profile) {
+        throw new NotFoundException('Perfil de médico não encontrado para este usuário');
+      }
+      whereByRole = { doctorProfileId: profile.id };
+    } else {
+      throw new BadRequestException('Role inválida');
+    }
+
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { ...whereByRole, status: { notIn: [AppointmentStatus.CANCELED] }, id: appointmentId },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Consulta não encontrada');
+    }
+
+
+
+    if (appointment.status === AppointmentStatus.COMPLETED) {
+      throw new BadRequestException(
+        'Consulta já foi realizada e não pode ser cancelada',
+      );
+    }
+
+    if (appointment.appointmentDay < new Date()) {
+      throw new BadRequestException(
+        'Consulta já passou e não pode ser cancelada',
+      );
+    }
+
+    return this.prisma.appointment.update({
+      where: { id: appointmentId },
+      data: { status: AppointmentStatus.CANCELED },
+    });
+  }
+
+
+  async completeAppointment(appointmentId: string, doctorId: string, userRole: string){
+
+    if (userRole !== 'doctor') {
+      throw new BadRequestException('Apenas médicos podem completar consultas');
+    }
+
+    const profile = await this.prisma.doctorProfile.findUnique({
+      where: { userId: doctorId },
+    })
+
+    if (!profile) {
+      throw new NotFoundException('Perfil de médico não encontrado para este usuário');
+    }
+
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { doctorProfileId: profile.id, status: { notIn: [AppointmentStatus.CANCELED] }, id: appointmentId },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Consulta não encontrada');
+    }
+
+    if (appointment.status === AppointmentStatus.COMPLETED) {
+      throw new BadRequestException(
+        'Consulta já foi realizada',
+      );
+    }
+
+    if (appointment.appointmentDay > new Date()) {
+      throw new BadRequestException(
+        'Consulta ainda não aconteceu e não pode ser marcada como realizada',
+      );
+    }
+
+    if (appointment.doctorProfileId !== profile.id) {
+      throw new BadRequestException(
+        'Médico só pode completar suas próprias consultas',
+      );
+    }
+
+    if (appointment.status === AppointmentStatus.NO_SHOW) {
+      throw new BadRequestException(
+        'Consulta não foi realizada e não pode ser marcada como concluída',
+      );
+    }
+
+    return this.prisma.appointment.update({
+      where: { id: appointmentId },
+      data: { status: AppointmentStatus.COMPLETED },
+    });
   }
 }

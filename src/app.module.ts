@@ -7,7 +7,11 @@ import { AdminModule } from './admin/admin.module';
 import { AppointmentsModule } from './appointments/appointments.module';
 
 @Module({
-  imports: [AuthModule.forRoot({ auth }), AdminModule, AppointmentsModule],
+  imports: [
+    AuthModule.forRoot({ auth }),
+    AdminModule,
+    AppointmentsModule
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
