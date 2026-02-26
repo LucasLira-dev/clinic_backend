@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { AppointmentStatus } from '@prisma/client';
@@ -10,6 +11,7 @@ import { parseISO, addMinutes, isSameDay, isAfter, format } from 'date-fns';
 
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
+import { Cron } from '@nestjs/schedule';
 
 const BRAZIL_TZ = 'America/Sao_Paulo';
 
@@ -26,6 +28,9 @@ const SLOT_MINUTES = 30;
 
 @Injectable()
 export class AppointmentsService {
+
+  private readonly logger = new Logger(AppointmentsService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async bookAppointment(dto: CreateAppointmentDto, patientId: string) {
@@ -564,5 +569,34 @@ export class AppointmentsService {
       where: { id: appointmentId },
       data: { status: AppointmentStatus.COMPLETED },
     });
+  }
+
+  @Cron('0 21 * * *', { timeZone: BRAZIL_TZ })
+  async markNoShow(){
+    const now = new Date();
+
+    const yyyyMmDd = new Intl.DateTimeFormat('en-CA', {
+      timeZone: BRAZIL_TZ,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(now);
+
+    const startOfDayUtc = fromZonedTime(`${yyyyMmDd}T00:00:00`, BRAZIL_TZ);
+
+    const result = await this.prisma.appointment.updateMany({
+      where: {
+        status: AppointmentStatus.SCHEDULED,
+        appointmentDay: {
+          gte: startOfDayUtc,
+          lte: now,
+        },
+      },
+      data: { status: AppointmentStatus.NO_SHOW }
+    });
+
+    this.logger.log(
+      `NO_SHOW diário executado: ${result.count} consultas marcadas como NO_SHOW`,
+    )
   }
 }
