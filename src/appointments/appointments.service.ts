@@ -583,14 +583,13 @@ export class AppointmentsService {
     }).format(now);
 
     const startOfDayUtc = fromZonedTime(`${yyyyMmDd}T00:00:00`, BRAZIL_TZ);
-    const endOfDayUtc = fromZonedTime(`${yyyyMmDd}T23:59:59`, BRAZIL_TZ);
 
     const result = await this.prisma.appointment.updateMany({
       where: {
         status: AppointmentStatus.SCHEDULED,
         appointmentDay: {
           gte: startOfDayUtc,
-          lte: endOfDayUtc,
+          lte: now,
         },
       },
       data: { status: AppointmentStatus.NO_SHOW }
