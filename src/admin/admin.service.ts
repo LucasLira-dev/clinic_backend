@@ -1,8 +1,6 @@
 import {
   Injectable,
   BadRequestException,
-  UnauthorizedException,
-  InternalServerErrorException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateDoctorDto } from './dto/create-doctor.dto';

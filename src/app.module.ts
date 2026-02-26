@@ -5,9 +5,11 @@ import { AuthModule } from '@thallesp/nestjs-better-auth';
 import { auth } from './auth/auth.config';
 import { AdminModule } from './admin/admin.module';
 import { AppointmentsModule } from './appointments/appointments.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     AuthModule.forRoot({ auth }),
     AdminModule,
     AppointmentsModule
