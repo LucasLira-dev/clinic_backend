@@ -63,6 +63,16 @@ export const auth = betterAuth({
         );
       },
     },
+    deleteUser: {
+      enabled: true,
+      sendDeleteAccountVerification: async ({ user, url }) => {
+        await mailService.sendEmail(
+          user.email,
+          'Confirmar exclusão de conta',
+          `Clique no link para confirmar a exclusão da sua conta: ${url}`,
+        );
+      },
+    },
   },
   additionalFields: {
     role: {
