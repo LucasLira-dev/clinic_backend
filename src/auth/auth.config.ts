@@ -38,41 +38,44 @@ export const auth = betterAuth({
     enabled: true,
     minPasswordLength: 6,
   },
-  user: {
-		changeEmail: {
-			enabled: true,
-			updateEmailWithoutVerification: false,
-			sendChangeEmailConfirmation: async ({ user, newEmail, url, token }, request) => {
-				await mailService.sendEmail(
-					user.email, // Enviado para o email ATUAL
-					'Confirmar mudança de email',
-					`Clique no link para aprovar a mudança para ${newEmail}: ${url}`
-				);
-			}
-		}
-	},
-	emailVerification: {
+  emailVerification: {
     expiresIn: 60 * 60, // 1 hora
-		sendVerificationEmail: async ({ user, url, token }) => {
-			await mailService.sendEmail(
-				user.email,
-				'Verificação de email',
-				`Clique no link para verificar seu email: ${url}`
-			);
-		}
-	},
+    sendVerificationEmail: async ({ user, url, token }) => {
+      await mailService.sendEmail(
+        user.email,
+        'Verificação de email',
+        `Clique no link para verificar seu email: ${url}`,
+      );
+    },
+  },
+  user: {
+    changeEmail: {
+      enabled: true,
+      updateEmailWithoutVerification: false,
+      sendChangeEmailConfirmation: async (
+        { user, newEmail, url, token },
+        request,
+      ) => {
+        await mailService.sendEmail(
+          user.email, // Enviado para o email ATUAL
+          'Confirmar mudança de email',
+          `Clique no link para aprovar a mudança para ${newEmail}: ${url}`,
+        );
+      },
+    },
+  },
   additionalFields: {
-      role: {
-        type: 'string',
-        required: true,
-        defaultValue: 'patient',
-        input: false,
-      },
-      imageCldPubId: {
-        type: 'string',
-        required: false,
-        input: true,
-      },
+    role: {
+      type: 'string',
+      required: true,
+      defaultValue: 'patient',
+      input: false,
+    },
+    imageCldPubId: {
+      type: 'string',
+      required: false,
+      input: true,
+    },
   },
   trustedOrigins: [frontendUrl],
   advanced: {
