@@ -131,6 +131,7 @@ model DoctorProfile {
   appointments      Appointment[]
   specialties       DoctorSpecialty[]
   workingDays       DoctorWorkingDay[]
+  posts            Post[]
 
   @@index([userId])
   @@index([crm])
@@ -184,4 +185,18 @@ model Appointment {
   @@unique([doctorProfileId, appointmentDay])
   @@unique([patientId, appointmentDay])
   @@index([patientId])
+}
+
+
+model Post {
+  id String @id @default(cuid())
+  title String
+  description String  
+  tag String
+  content String
+  doctorProfileId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  doctorProfile DoctorProfile @relation(fields: [doctorProfileId], references: [id], onDelete: Cascade)
 }

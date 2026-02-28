@@ -28,7 +28,6 @@ const SLOT_MINUTES = 30;
 
 @Injectable()
 export class AppointmentsService {
-
   private readonly logger = new Logger(AppointmentsService.name);
 
   constructor(private readonly prisma: PrismaService) {}
@@ -420,7 +419,11 @@ export class AppointmentsService {
     });
   }
 
-  async getAppointmentDetails(appointmentId: string, userId: string, role: string) {
+  async getAppointmentDetails(
+    appointmentId: string,
+    userId: string,
+    role: string,
+  ) {
     let whereByRole: Record<string, string> = {};
 
     if (role === 'patient') {
@@ -472,8 +475,11 @@ export class AppointmentsService {
     return appointment;
   }
 
-  async cancelAppointment(appointmentId: string, userId: string, userRole: string) {
-
+  async cancelAppointment(
+    appointmentId: string,
+    userId: string,
+    userRole: string,
+  ) {
     let whereByRole: Record<string, string> = {};
 
     if (userRole === 'patient') {
@@ -481,9 +487,11 @@ export class AppointmentsService {
     } else if (userRole === 'doctor') {
       const profile = await this.prisma.doctorProfile.findUnique({
         where: { userId },
-      })
+      });
       if (!profile) {
-        throw new NotFoundException('Perfil de médico não encontrado para este usuário');
+        throw new NotFoundException(
+          'Perfil de médico não encontrado para este usuário',
+        );
       }
       whereByRole = { doctorProfileId: profile.id };
     } else {
@@ -491,14 +499,16 @@ export class AppointmentsService {
     }
 
     const appointment = await this.prisma.appointment.findFirst({
-      where: { ...whereByRole, status: { notIn: [AppointmentStatus.CANCELED] }, id: appointmentId },
+      where: {
+        ...whereByRole,
+        status: { notIn: [AppointmentStatus.CANCELED] },
+        id: appointmentId,
+      },
     });
 
     if (!appointment) {
       throw new NotFoundException('Consulta não encontrada');
     }
-
-
 
     if (appointment.status === AppointmentStatus.COMPLETED) {
       throw new BadRequestException(
@@ -518,23 +528,31 @@ export class AppointmentsService {
     });
   }
 
-
-  async completeAppointment(appointmentId: string, doctorId: string, userRole: string){
-
+  async completeAppointment(
+    appointmentId: string,
+    doctorId: string,
+    userRole: string,
+  ) {
     if (userRole !== 'doctor') {
       throw new BadRequestException('Apenas médicos podem completar consultas');
     }
 
     const profile = await this.prisma.doctorProfile.findUnique({
       where: { userId: doctorId },
-    })
+    });
 
     if (!profile) {
-      throw new NotFoundException('Perfil de médico não encontrado para este usuário');
+      throw new NotFoundException(
+        'Perfil de médico não encontrado para este usuário',
+      );
     }
 
     const appointment = await this.prisma.appointment.findFirst({
-      where: { doctorProfileId: profile.id, status: { notIn: [AppointmentStatus.CANCELED] }, id: appointmentId },
+      where: {
+        doctorProfileId: profile.id,
+        status: { notIn: [AppointmentStatus.CANCELED] },
+        id: appointmentId,
+      },
     });
 
     if (!appointment) {
@@ -542,9 +560,7 @@ export class AppointmentsService {
     }
 
     if (appointment.status === AppointmentStatus.COMPLETED) {
-      throw new BadRequestException(
-        'Consulta já foi realizada',
-      );
+      throw new BadRequestException('Consulta já foi realizada');
     }
 
     if (appointment.appointmentDay > new Date()) {
@@ -572,7 +588,7 @@ export class AppointmentsService {
   }
 
   @Cron('0 21 * * *', { timeZone: BRAZIL_TZ })
-  async markNoShow(){
+  async markNoShow() {
     const now = new Date();
 
     const yyyyMmDd = new Intl.DateTimeFormat('en-CA', {
@@ -592,11 +608,11 @@ export class AppointmentsService {
           lte: now,
         },
       },
-      data: { status: AppointmentStatus.NO_SHOW }
+      data: { status: AppointmentStatus.NO_SHOW },
     });
 
     this.logger.log(
       `NO_SHOW diário executado: ${result.count} consultas marcadas como NO_SHOW`,
-    )
+    );
   }
 }
