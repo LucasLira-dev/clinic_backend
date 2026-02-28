@@ -36,7 +36,11 @@ export class AppointmentsController {
   ) {
     const userId = session.user.id;
     const userRole = session.user.role as 'patient' | 'doctor';
-    return this.appointmentsService.cancelAppointment(appointmentId, userId, userRole);
+    return this.appointmentsService.cancelAppointment(
+      appointmentId,
+      userId,
+      userRole,
+    );
   }
 
   @Post('complete/:id')
@@ -46,7 +50,11 @@ export class AppointmentsController {
   ) {
     const doctorId = session.user.id;
     const userRole = session.user.role as 'patient' | 'doctor';
-    return this.appointmentsService.completeAppointment(appointmentId, doctorId, userRole);
+    return this.appointmentsService.completeAppointment(
+      appointmentId,
+      doctorId,
+      userRole,
+    );
   }
 
   @Get('doctors')

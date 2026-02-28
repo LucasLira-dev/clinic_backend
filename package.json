@@ -22,6 +22,7 @@
   "dependencies": {
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
+    "@nestjs/mapped-types": "*",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/schedule": "^6.1.1",
     "@prisma/adapter-pg": "^7.4.0",
@@ -33,6 +34,7 @@
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "nest-resend": "^3.1.0",
+    "nodemailer": "^8.0.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
@@ -45,6 +47,7 @@
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.10.7",
+    "@types/nodemailer": "^7.0.11",
     "@types/pg": "^8.16.0",
     "@types/supertest": "^6.0.2",
     "dotenv": "^17.3.1",

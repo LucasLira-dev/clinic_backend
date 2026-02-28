@@ -5,6 +5,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import 'dotenv/config';
+import { MailService } from '../mail/mail.service';
 
 type Role = 'admin' | 'patient' | 'doctor';
 
@@ -20,12 +21,14 @@ if (!process.env.FRONTEND_URL) {
 }
 
 const frontendUrl = process.env.FRONTEND_URL.replace(/\/$/, '');
+const isHttpsFrontend = frontendUrl.startsWith('https://');
 
 const pool = new Pool({ connectionString });
 
 // Criar adapter do Prisma com driver Neon
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
+const mailService = new MailService();
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
@@ -33,27 +36,53 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
+    minPasswordLength: 6,
+  },
+  emailVerification: {
+    expiresIn: 60 * 60, // 1 hora
+    sendVerificationEmail: async ({ user, url, token }) => {
+      await mailService.sendEmail(
+        user.email,
+        'Verificação de email',
+        `Clique no link para verificar seu email: ${url}`,
+      );
+    },
   },
   user: {
-    additionalFields: {
-      role: {
-        type: 'string',
-        required: true,
-        defaultValue: 'patient',
-        input: false,
+    changeEmail: {
+      enabled: true,
+      updateEmailWithoutVerification: false,
+      sendChangeEmailConfirmation: async (
+        { user, newEmail, url, token },
+        request,
+      ) => {
+        await mailService.sendEmail(
+          user.email, // Enviado para o email ATUAL
+          'Confirmar mudança de email',
+          `Clique no link para aprovar a mudança para ${newEmail}: ${url}`,
+        );
       },
-      imageCldPubId: {
-        type: 'string',
-        required: false,
-        input: true,
-      },
+    },
+  },
+  additionalFields: {
+    role: {
+      type: 'string',
+      required: true,
+      defaultValue: 'patient',
+      input: false,
+    },
+    imageCldPubId: {
+      type: 'string',
+      required: false,
+      input: true,
     },
   },
   trustedOrigins: [frontendUrl],
   advanced: {
     defaultCookieAttributes: {
-      sameSite: 'None',
-      secure: true,
+      // In localhost over HTTP, Secure + SameSite=None can block session cookies.
+      sameSite: isHttpsFrontend ? 'None' : 'Lax',
+      secure: isHttpsFrontend,
     },
   },
   socialProviders: {

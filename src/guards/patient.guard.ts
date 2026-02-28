@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
-import { auth } from '../../auth/auth.config';
+import { auth } from '../auth/auth.config';
 
 @Injectable()
 export class PatientGuard implements CanActivate {
