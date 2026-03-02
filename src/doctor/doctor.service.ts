@@ -8,6 +8,7 @@ import { UpdateDoctorDto } from './dto/update-doctor.dto';
 import { UpdateDoctorPhotoDto } from './dto/update-photo.dto';
 import { PrismaService } from 'src/prisma.service';
 import { identity } from 'rxjs';
+import { workerData } from 'worker_threads';
 
 @Injectable()
 export class DoctorService {
@@ -17,8 +18,113 @@ export class DoctorService {
     return 'This action adds a new doctor';
   }
 
-  findAll() {
-    return `This action returns all doctor`;
+  async findAll() {
+    const doctors = await this.prisma.doctorProfile.findMany({
+      select: {
+        id: true,
+        fullName: true,
+        crm: true,
+        profilePhoto: true,
+        biography: true,
+        specialties: {
+          select: {
+            isPrimary: true,
+            specialty: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            workingDays: true,
+          },
+        },
+      },
+    });
+
+    return doctors;
+  }
+
+  async findDoctorProfile(id: string) {
+    const doctor = await this.prisma.doctorProfile.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        fullName: true,
+        crm: true,
+        profilePhoto: true,
+        biography: true,
+        specialties: {
+          select: {
+            isPrimary: true,
+            specialty: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+        posts: {
+          select: {
+            id: true,
+            title: true,
+            content: true,
+            createdAt: true,
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 3,
+        },
+      },
+    });
+
+    if (!doctor) {
+      throw new NotFoundException('Médico não encontrado');
+    }
+
+    const specialty = doctor.specialties.find((s) => s.isPrimary)?.specialty.name || null;
+
+    const workingDays = await this.prisma.doctorWorkingDay.findMany({
+      where: { doctorProfileId: doctor.id },
+      select: {
+        dayOfWeek: true,
+        startHour: true,
+        endHour: true,
+      },
+    });
+
+    const startHour = workingDays.map((at) => at.startHour);
+    const endHour = workingDays.map((at) => at.endHour);
+
+    const slots: string[] = [];
+
+    let currentHour = startHour[0];
+    const endHourTime = endHour[0];
+    
+    while (currentHour < endHourTime) {
+      slots.push(currentHour.toString().padStart(2, '0') + ':00');
+      slots.push(currentHour.toString().padStart(2, '0') + ':30'); 
+      currentHour++;
+    }
+
+    const weeklyAppointments = slots.length * workingDays.length;
+
+    return {
+      id: doctor.id,
+      fullName: doctor.fullName,
+      crm: doctor.crm,
+      profilePhoto: doctor.profilePhoto,
+      biography: doctor.biography,
+      specialty: specialty,
+      weeklyAppointments,
+      daysOfWork: workingDays.length,
+      workingDays: workingDays.map((wd) => ({ dayOfWeek: wd.dayOfWeek })),
+      posts: doctor.posts,
+      slots,
+    }
   }
 
   async findOne(userId: string) {
