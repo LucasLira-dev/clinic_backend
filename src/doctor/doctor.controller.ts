@@ -14,7 +14,6 @@ import { DoctorGuard } from 'src/guards/doctor.guard';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 import { UpdateDoctorPhotoDto } from './dto/update-photo.dto';
 
-@UseGuards(DoctorGuard)
 @Controller('doctor')
 export class DoctorController {
   constructor(private readonly doctorService: DoctorService) {}
@@ -29,11 +28,17 @@ export class DoctorController {
     return this.doctorService.findAll();
   }
 
+  @Get('doctorProfile/:id')
+  findOneById(@Param('id') id: string) {
+    return this.doctorService.findDoctorProfile(id);
+  }
+
   @Get('me')
   findOne(@Session() session: UserSession) {
     return this.doctorService.findOne(session.user.id);
   }
 
+  @UseGuards(DoctorGuard)
   @Patch('me/photo')
   async update(
     @Body() updateDoctorPhotoDto: UpdateDoctorPhotoDto,
@@ -45,6 +50,7 @@ export class DoctorController {
     );
   }
 
+  @UseGuards(DoctorGuard)
   @Patch('me/biography')
   async updateBiography(
     @Body('biography') biography: string,
