@@ -3,20 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { CreateDoctorDto } from './dto/create-doctor.dto';
-import { UpdateDoctorDto } from './dto/update-doctor.dto';
 import { UpdateDoctorPhotoDto } from './dto/update-photo.dto';
 import { PrismaService } from 'src/prisma.service';
-import { identity } from 'rxjs';
-import { workerData } from 'worker_threads';
 
 @Injectable()
 export class DoctorService {
   constructor(private prisma: PrismaService) {}
-
-  create(createDoctorDto: CreateDoctorDto) {
-    return 'This action adds a new doctor';
-  }
 
   async findAll() {
     const doctors = await this.prisma.doctorProfile.findMany({
@@ -70,7 +62,7 @@ export class DoctorService {
           select: {
             id: true,
             title: true,
-            content: true,
+            description: true,
             createdAt: true,
           },
           orderBy: {
@@ -85,7 +77,8 @@ export class DoctorService {
       throw new NotFoundException('Médico não encontrado');
     }
 
-    const specialty = doctor.specialties.find((s) => s.isPrimary)?.specialty.name || null;
+    const specialty =
+      doctor.specialties.find((s) => s.isPrimary)?.specialty.name || null;
 
     const workingDays = await this.prisma.doctorWorkingDay.findMany({
       where: { doctorProfileId: doctor.id },
@@ -103,10 +96,10 @@ export class DoctorService {
 
     let currentHour = startHour[0];
     const endHourTime = endHour[0];
-    
+
     while (currentHour < endHourTime) {
       slots.push(currentHour.toString().padStart(2, '0') + ':00');
-      slots.push(currentHour.toString().padStart(2, '0') + ':30'); 
+      slots.push(currentHour.toString().padStart(2, '0') + ':30');
       currentHour++;
     }
 
@@ -124,7 +117,7 @@ export class DoctorService {
       workingDays: workingDays.map((wd) => ({ dayOfWeek: wd.dayOfWeek })),
       posts: doctor.posts,
       slots,
-    }
+    };
   }
 
   async findOne(userId: string) {
@@ -190,10 +183,6 @@ export class DoctorService {
     }
 
     return updatedDoctorPhoto;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} doctor`;
   }
 
   async updateBiography(userId: string, biography: string) {

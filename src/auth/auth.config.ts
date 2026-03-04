@@ -40,7 +40,7 @@ export const auth = betterAuth({
   },
   emailVerification: {
     expiresIn: 60 * 60, // 1 hora
-    sendVerificationEmail: async ({ user, url, token }) => {
+    sendVerificationEmail: async ({ user, url }) => {
       await mailService.sendEmail(
         user.email,
         'Verificação de email',
@@ -52,10 +52,7 @@ export const auth = betterAuth({
     changeEmail: {
       enabled: true,
       updateEmailWithoutVerification: false,
-      sendChangeEmailConfirmation: async (
-        { user, newEmail, url, token },
-        request,
-      ) => {
+      sendChangeEmailConfirmation: async ({ user, newEmail, url }) => {
         await mailService.sendEmail(
           user.email, // Enviado para o email ATUAL
           'Confirmar mudança de email',
