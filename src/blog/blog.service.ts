@@ -121,9 +121,6 @@ export class BlogService {
     }
 
     if (post.doctorProfile.userId !== doctorId) {
-      console.log(
-        `Doctor ID from session: ${doctorId}, Doctor ID from post: ${post.doctorProfile.userId}`,
-      );
       throw new UnauthorizedException(
         'You are not authorized to delete this post',
       );
