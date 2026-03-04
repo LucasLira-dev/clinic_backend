@@ -18,11 +18,6 @@ import { UpdateDoctorPhotoDto } from './dto/update-photo.dto';
 export class DoctorController {
   constructor(private readonly doctorService: DoctorService) {}
 
-  @Post()
-  create(@Body() createDoctorDto: CreateDoctorDto) {
-    return this.doctorService.create(createDoctorDto);
-  }
-
   @Get()
   findAll() {
     return this.doctorService.findAll();
@@ -57,10 +52,5 @@ export class DoctorController {
     @Session() session: UserSession,
   ) {
     return this.doctorService.updateBiography(session.user.id, biography);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.doctorService.remove(+id);
   }
 }

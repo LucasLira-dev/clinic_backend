@@ -1,12 +1,12 @@
 import { IsString } from 'class-validator';
 
 export class CreateAppointmentDto {
-  @IsString()
+  @IsString({ message: 'Doctor ID must be a string' })
   doctorId: string;
 
-  @IsString()
+  @IsString({ message: 'Date must be a string' })
   date: string;
 
-  @IsString()
+  @IsString({ message: 'Time must be a string' })
   time: string;
 }

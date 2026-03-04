@@ -45,6 +45,7 @@ export class AppointmentsService {
         },
       },
     });
+
     if (!doctor) {
       throw new NotFoundException('Médico não encontrado');
     }

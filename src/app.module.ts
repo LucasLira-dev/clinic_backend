@@ -8,6 +8,7 @@ import { AppointmentsModule } from './appointments/appointments.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { DoctorModule } from './doctor/doctor.module';
 import { MailService } from './mail/mail.service';
+import { BlogModule } from './blog/blog.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { MailService } from './mail/mail.service';
     AdminModule,
     AppointmentsModule,
     DoctorModule,
+    BlogModule,
   ],
   controllers: [AppController],
   providers: [AppService, MailService],
