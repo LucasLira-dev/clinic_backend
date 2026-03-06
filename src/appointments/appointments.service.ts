@@ -191,13 +191,13 @@ export class AppointmentsService {
 
   async getDashboardData(userId: string, role: 'patient' | 'doctor' | 'admin') {
     //buscar a semana atual
-    const now = new Date();
+    const nowInBrazil = toZonedTime(new Date(), BRAZIL_TZ)
 
     const startOfWeekUTC = fromZonedTime(
       new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() - now.getDay(),
+        nowInBrazil.getFullYear(),
+        nowInBrazil.getMonth(),
+        nowInBrazil.getDate() - nowInBrazil.getDay(),
         0,
         0,
         0,
@@ -207,9 +207,9 @@ export class AppointmentsService {
 
     const endOfWeekUTC = fromZonedTime(
       new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() + (6 - now.getDay()),
+        nowInBrazil.getFullYear(),
+        nowInBrazil.getMonth(),
+        nowInBrazil.getDate() + (6 - nowInBrazil.getDay()),
         23,
         59,
         59,

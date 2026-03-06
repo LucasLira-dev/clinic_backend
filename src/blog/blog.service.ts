@@ -60,7 +60,6 @@ export class BlogService {
           },
         },
       },
-      take: 6,
       orderBy: {
         createdAt: 'desc',
       },
