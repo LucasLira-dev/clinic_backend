@@ -4,7 +4,6 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { CreatePostDto } from './dto/create-post.dto';
-import { UpdateBlogDto } from './dto/update-blog.dto';
 import { PrismaService } from 'src/prisma.service';
 
 @Injectable()

@@ -189,6 +189,185 @@ export class AppointmentsService {
     return doctors;
   }
 
+  async getDashboardData(userId: string, role: 'patient' | 'doctor' | 'admin') {
+    //buscar a semana atual
+    const nowInBrazil = toZonedTime(new Date(), BRAZIL_TZ)
+
+    const startOfWeekUTC = fromZonedTime(
+      new Date(
+        nowInBrazil.getFullYear(),
+        nowInBrazil.getMonth(),
+        nowInBrazil.getDate() - nowInBrazil.getDay(),
+        0,
+        0,
+        0,
+      ),
+      BRAZIL_TZ,
+    ); //isso pega o domingo da semana atual, mesmo com o fuso horário
+
+    const endOfWeekUTC = fromZonedTime(
+      new Date(
+        nowInBrazil.getFullYear(),
+        nowInBrazil.getMonth(),
+        nowInBrazil.getDate() + (6 - nowInBrazil.getDay()),
+        23,
+        59,
+        59,
+      ),
+      BRAZIL_TZ,
+    ); //isso garante que estamos pegando a semana inteira, mesmo com o fuso horário
+
+    const weekAppointments = await this.prisma.appointment.findMany({
+      where: {
+        appointmentDay: {
+          gte: startOfWeekUTC,
+          lte: endOfWeekUTC,
+        },
+        status: { notIn: [AppointmentStatus.CANCELED] },
+      },
+    }); //busca todas as consultas da ultima semana, independente do usuário
+
+    const totalWeekAppointments = weekAppointments.length; //total de consultas na semana
+
+    const totalCompletedAppointments = weekAppointments.filter(
+      (a) => a.status === AppointmentStatus.COMPLETED,
+    ).length; //filtra as consultas que foram realizadas
+
+    const totalPatients = await this.prisma.user.count({
+      where: { role: 'patient' },
+    }); //conta o total de pacientes cadastrados
+
+    const totalDoctors = await this.prisma.doctorProfile.count(); //conta o total de médicos cadastrados
+
+    const appointments = await this.prisma.appointment.findMany({
+      where: {
+        status: { notIn: [AppointmentStatus.CANCELED] },
+      },
+      select: {
+        appointmentDay: true,
+      },
+    });
+
+    const byWeekday = appointments.reduce(
+      (acc, appt) => {
+        const localDate = toZonedTime(appt.appointmentDay, BRAZIL_TZ); //converte a data da consulta para o horário de Brasília
+        const dayIndex = localDate.getDay(); //pega o dia da semana (0-6)
+        const dayName = dayMap[dayIndex]; //converte para o nome do dia
+        acc[dayName] += 1; //incrementa a contagem do dia correspondente
+        return acc;
+      },
+      {
+        DOMINGO: 0,
+        SEGUNDA: 0,
+        TERCA: 0,
+        QUARTA: 0,
+        QUINTA: 0,
+        SEXTA: 0,
+        SABADO: 0,
+      },
+    );
+
+    type DashboardNextAppointment = {
+      id: string;
+      appointmentDay: Date;
+      counterpartName: string;
+      counterpartRole: 'doctor' | 'patient';
+      counterpartSpecialty: string | null;
+    };
+
+    const nowUTC = new Date();
+    let nextAppointments: DashboardNextAppointment[] = [];
+
+    if (role === 'patient') {
+      const patientAppointments = await this.prisma.appointment.findMany({
+        where: {
+          patientId: userId,
+          appointmentDay: { gt: nowUTC },
+          status: { not: AppointmentStatus.CANCELED },
+        },
+        take: 2,
+        orderBy: { appointmentDay: 'asc' },
+        select: {
+          id: true,
+          appointmentDay: true,
+          status: true,
+          doctorProfile: {
+            select: {
+              fullName: true,
+              specialties: {
+                select: {
+                  isPrimary: true,
+                  specialty: {
+                    select: {
+                      name: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      nextAppointments = patientAppointments.map((appointment) => {
+        const primarySpecialty =
+          appointment.doctorProfile.specialties.find((s) => s.isPrimary)
+            ?.specialty.name ??
+          appointment.doctorProfile.specialties[0]?.specialty.name ??
+          null;
+
+        return {
+          id: appointment.id,
+          appointmentDay: appointment.appointmentDay,
+          counterpartName: appointment.doctorProfile.fullName,
+          counterpartRole: 'doctor',
+          counterpartSpecialty: primarySpecialty,
+          status: appointment.status,
+        };
+      });
+    } else if (role === 'doctor') {
+      const doctorAppointments = await this.prisma.appointment.findMany({
+        where: {
+          doctorProfile: {
+            userId,
+          },
+          appointmentDay: { gt: nowUTC },
+          status: { not: AppointmentStatus.CANCELED },
+        },
+        take: 2,
+        orderBy: { appointmentDay: 'asc' },
+        select: {
+          id: true,
+          appointmentDay: true,
+          patient: {
+            select: {
+              name: true,
+            },
+          },
+          status: true,
+        },
+      });
+
+      nextAppointments = doctorAppointments.map((appointment) => ({
+        id: appointment.id,
+        appointmentDay: appointment.appointmentDay,
+        counterpartName: appointment.patient.name,
+        counterpartRole: 'patient',
+        counterpartSpecialty: null,
+        status: appointment.status,
+      }));
+    }
+
+    return {
+      totalWeekAppointments,
+      totalCompletedAppointments,
+      totalPatients,
+      totalDoctors,
+      appointmentsByWeekday: byWeekday,
+      upcomingAppointments: nextAppointments,
+    };
+  }
+
   async getDoctorDetails(doctorId: string) {
     const doctor = await this.prisma.doctorProfile.findUnique({
       where: { id: doctorId },
