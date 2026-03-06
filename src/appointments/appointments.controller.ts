@@ -57,6 +57,13 @@ export class AppointmentsController {
     );
   }
 
+  @Get('dashboard')
+  async getDashboardData(@Session() session: UserSession) {
+    const userId = session.user.id;
+    const role = session.user.role as 'patient' | 'doctor' | 'admin';
+    return this.appointmentsService.getDashboardData(userId, role);
+  }
+
   @Get('doctors')
   async getDoctors() {
     return this.appointmentsService.getDoctors();
