@@ -191,7 +191,7 @@ export class AppointmentsService {
 
   async getDashboardData(userId: string, role: 'patient' | 'doctor' | 'admin') {
     //buscar a semana atual
-    const nowInBrazil = toZonedTime(new Date(), BRAZIL_TZ)
+    const nowInBrazil = toZonedTime(new Date(), BRAZIL_TZ);
 
     const startOfWeekUTC = fromZonedTime(
       new Date(

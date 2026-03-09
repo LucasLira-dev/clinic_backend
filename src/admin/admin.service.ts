@@ -176,7 +176,10 @@ export class AdminService {
   }
 
   async deleteUser(userId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { doctorProfile: true },
+    });
 
     if (!user) {
       throw new BadRequestException('Usuário não encontrado');
@@ -186,6 +189,12 @@ export class AdminService {
       throw new BadRequestException(
         'Não é permitido remover usuários com role admin',
       );
+    }
+
+    if (user.doctorProfile) {
+      await this.prisma.appointment.deleteMany({
+        where: { doctorProfileId: user.doctorProfile.id },
+      });
     }
 
     await this.prisma.user.delete({ where: { id: userId } });
