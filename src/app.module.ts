@@ -19,7 +19,7 @@ import {
 import { CustomArcjetGuard } from './guards/arcjet.guard';
 import { APP_GUARD } from '@nestjs/core';
 
-if (!process.env.ARCJET_ENV && process.env.ARCJET_ENV !== 'test') {
+if (!process.env.ARCJET_ENV && process.env.NODE_ENV !== 'test') {
   throw new Error('ARCJET_KEY environment variable is not defined.');
 }
 
@@ -49,7 +49,7 @@ if (!process.env.ARCJET_ENV && process.env.ARCJET_ENV !== 'test') {
         slidingWindow({
           mode: 'LIVE',
           interval: '1m',
-          max: 5, //
+          max: 45, // Max 45 requests per minute per IP
         }),
       ],
     }),
