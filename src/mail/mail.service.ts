@@ -54,8 +54,6 @@ export class MailService {
         text,
         html,
       });
-
-      console.log(`Email sent to ${to} with subject "${subject}"`);
     } catch (error) {
       this.logger.error('Error sending email', error);
       throw new Error('Failed to send email');

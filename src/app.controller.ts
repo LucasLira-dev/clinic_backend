@@ -1,5 +1,6 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, HttpStatus } from '@nestjs/common';
 import { AppService } from './app.service';
+import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
 @Controller()
 export class AppController {
@@ -8,5 +9,14 @@ export class AppController {
   @Get()
   getHello(): string {
     return this.appService.getHello();
+  }
+
+  @AllowAnonymous()
+  @Get('health')
+  healthCheck() {
+    return {
+      status: HttpStatus.OK,
+      message: 'Service is healthy',
+    };
   }
 }
