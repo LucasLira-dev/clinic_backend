@@ -7,7 +7,7 @@ import {
 import { AppointmentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 
-import { parseISO, addMinutes, isSameDay, isAfter, format } from 'date-fns';
+import { addDays, addMinutes, format } from 'date-fns';
 
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
@@ -31,6 +31,53 @@ export class AppointmentsService {
   private readonly logger = new Logger(AppointmentsService.name);
 
   constructor(private readonly prisma: PrismaService) {}
+
+  private parseDateParts(date: string) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+
+    if (!match) {
+      throw new BadRequestException('Data inválida. Use o formato YYYY-MM-DD.');
+    }
+
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const localDate = new Date(year, month - 1, day);
+
+    if (
+      Number.isNaN(localDate.getTime()) ||
+      localDate.getFullYear() !== year ||
+      localDate.getMonth() !== month - 1 ||
+      localDate.getDate() !== day
+    ) {
+      throw new BadRequestException('Data inválida. Use o formato YYYY-MM-DD.');
+    }
+
+    return { year, month, day };
+  }
+
+  private createLocalDate(date: string, hour = 0, minute = 0) {
+    const { year, month, day } = this.parseDateParts(date);
+    return new Date(year, month - 1, day, hour, minute, 0, 0);
+  }
+
+  private getDayBoundsUtc(date: string) {
+    const startLocal = this.createLocalDate(date);
+    const nextDayLocal = addDays(startLocal, 1);
+
+    return {
+      startDayUTC: fromZonedTime(startLocal, BRAZIL_TZ),
+      nextDayUTC: fromZonedTime(nextDayLocal, BRAZIL_TZ),
+    };
+  }
+
+  private getDayOfWeek(date: string) {
+    return dayMap[this.createLocalDate(date).getDay()];
+  }
+
+  private getAppointmentUtcDate(date: string, hour: number, minute: number) {
+    return fromZonedTime(this.createLocalDate(date, hour, minute), BRAZIL_TZ);
+  }
 
   async bookAppointment(dto: CreateAppointmentDto, patientId: string) {
     const doctor = await this.prisma.doctorProfile.findUnique({
@@ -73,15 +120,8 @@ export class AppointmentsService {
       );
     }
 
-    const zonedDate = toZonedTime(
-      new Date(`${dto.date}T${dto.time}:00`),
-      BRAZIL_TZ,
-    ); // Converte para horário de Brasília
-    if (Number.isNaN(zonedDate.getTime())) {
-      throw new BadRequestException('Data ou hora inválida');
-    }
-
-    const dayOfWeek = dayMap[zonedDate.getDay()];
+    this.parseDateParts(dto.date);
+    const dayOfWeek = this.getDayOfWeek(dto.date);
 
     const workingDay = doctor.workingDays.find(
       (wd) => wd.dayOfWeek === dayOfWeek,
@@ -102,16 +142,16 @@ export class AppointmentsService {
       throw new BadRequestException('Médico não trabalha nesse horário');
     }
 
-    const localStart = new Date(`${dto.date}T${dto.time}:00`);
-    const appointmentDay = fromZonedTime(localStart, BRAZIL_TZ);
-    const startDayUTC = fromZonedTime(
-      new Date(`${dto.date}T00:00:00`),
-      BRAZIL_TZ,
-    );
-    const endDayUTC = fromZonedTime(
-      new Date(`${dto.date}T23:59:59`),
-      BRAZIL_TZ,
-    );
+    const appointmentDay = this.getAppointmentUtcDate(dto.date, hour, minute);
+    const nowUTC = new Date();
+
+    if (appointmentDay.getTime() <= nowUTC.getTime()) {
+      throw new BadRequestException(
+        'Não é possível agendar consultas em horários passados',
+      );
+    }
+
+    const { startDayUTC, nextDayUTC } = this.getDayBoundsUtc(dto.date);
 
     const appointmentsWithDoctorOnDay = await this.prisma.appointment.count({
       where: {
@@ -119,7 +159,7 @@ export class AppointmentsService {
         patientId,
         appointmentDay: {
           gte: startDayUTC,
-          lte: endDayUTC,
+          lt: nextDayUTC,
         },
         status: { notIn: [AppointmentStatus.CANCELED] },
       },
@@ -424,25 +464,10 @@ export class AppointmentsService {
       throw new BadRequestException('Data é obrigatória');
     }
 
-    const parsedDate = parseISO(date);
+    this.parseDateParts(date);
+    const { startDayUTC, nextDayUTC } = this.getDayBoundsUtc(date);
 
-    if (isNaN(parsedDate.getTime())) {
-      throw new BadRequestException('Data inválida. Use o formato YYYY-MM-DD.');
-    }
-
-    const startDayUTC = fromZonedTime(new Date(`${date}T00:00:00`), BRAZIL_TZ);
-
-    const endDayUTC = fromZonedTime(new Date(`${date}T23:59:59`), BRAZIL_TZ);
-
-    const todayUTC = new Date();
-    const isToday = isSameDay(
-      toZonedTime(startDayUTC, BRAZIL_TZ),
-      toZonedTime(todayUTC, BRAZIL_TZ),
-    );
-
-    const zonedDate = toZonedTime(new Date(`${date}T00:00:00`), BRAZIL_TZ);
-
-    const dayOfWeek = dayMap[zonedDate.getDay()];
+    const dayOfWeek = this.getDayOfWeek(date);
 
     const doctor = await this.prisma.doctorProfile.findUnique({
       where: { id: doctorId },
@@ -463,11 +488,17 @@ export class AppointmentsService {
 
     const slots: Date[] = [];
 
-    let current = new Date(startDayUTC); // Começa do início do dia solicitado
-    current.setHours(workingDay.startHour, workingDay.startMinute, 0, 0);
+    let current = this.getAppointmentUtcDate(
+      date,
+      workingDay.startHour,
+      workingDay.startMinute,
+    );
 
-    const endTime = new Date(startDayUTC);
-    endTime.setHours(workingDay.endHour, workingDay.endMinute, 0, 0);
+    const endTime = this.getAppointmentUtcDate(
+      date,
+      workingDay.endHour,
+      workingDay.endMinute,
+    );
 
     while (current < endTime) {
       slots.push(new Date(current));
@@ -480,7 +511,7 @@ export class AppointmentsService {
         doctorProfileId: doctorId,
         appointmentDay: {
           gte: startDayUTC,
-          lte: endDayUTC,
+          lt: nextDayUTC,
         },
         status: {
           notIn: [AppointmentStatus.CANCELED],
@@ -493,11 +524,10 @@ export class AppointmentsService {
     let availableSlots = slots.filter(
       (slot) => !bookedTimes.includes(slot.getTime()),
     );
-
-    if (isToday) {
-      const nowUTC = new Date();
-      availableSlots = availableSlots.filter((slot) => isAfter(slot, nowUTC));
-    }
+    const nowUTC = new Date();
+    availableSlots = availableSlots.filter(
+      (slot) => slot.getTime() > nowUTC.getTime(),
+    );
 
     const formattedSlots = availableSlots.map((slot) => {
       const brDate = toZonedTime(slot, BRAZIL_TZ);
@@ -510,7 +540,7 @@ export class AppointmentsService {
         patientId,
         appointmentDay: {
           gte: startDayUTC,
-          lte: endDayUTC,
+          lt: nextDayUTC,
         },
         status: { notIn: [AppointmentStatus.CANCELED] },
       },
@@ -519,7 +549,7 @@ export class AppointmentsService {
     const canAppoint = appointmentsWithDoctorOnDay < 2;
 
     return {
-      date: zonedDate,
+      date,
       slots: formattedSlots,
       canAppoint: canAppoint,
     };
