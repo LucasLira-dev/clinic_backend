@@ -7,7 +7,7 @@ import {
 import { AppointmentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 
-import { addDays, addMinutes, format, isAfter, isSameDay } from 'date-fns';
+import { addDays, addMinutes, format } from 'date-fns';
 
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
@@ -143,6 +143,14 @@ export class AppointmentsService {
     }
 
     const appointmentDay = this.getAppointmentUtcDate(dto.date, hour, minute);
+    const nowUTC = new Date();
+
+    if (appointmentDay.getTime() <= nowUTC.getTime()) {
+      throw new BadRequestException(
+        'Não é possível agendar consultas em horários passados',
+      );
+    }
+
     const { startDayUTC, nextDayUTC } = this.getDayBoundsUtc(dto.date);
 
     const appointmentsWithDoctorOnDay = await this.prisma.appointment.count({
@@ -459,12 +467,6 @@ export class AppointmentsService {
     this.parseDateParts(date);
     const { startDayUTC, nextDayUTC } = this.getDayBoundsUtc(date);
 
-    const todayUTC = new Date();
-    const isToday = isSameDay(
-      toZonedTime(startDayUTC, BRAZIL_TZ),
-      toZonedTime(todayUTC, BRAZIL_TZ),
-    );
-
     const dayOfWeek = this.getDayOfWeek(date);
 
     const doctor = await this.prisma.doctorProfile.findUnique({
@@ -522,11 +524,10 @@ export class AppointmentsService {
     let availableSlots = slots.filter(
       (slot) => !bookedTimes.includes(slot.getTime()),
     );
-
-    if (isToday) {
-      const nowUTC = new Date();
-      availableSlots = availableSlots.filter((slot) => isAfter(slot, nowUTC));
-    }
+    const nowUTC = new Date();
+    availableSlots = availableSlots.filter(
+      (slot) => slot.getTime() > nowUTC.getTime(),
+    );
 
     const formattedSlots = availableSlots.map((slot) => {
       const brDate = toZonedTime(slot, BRAZIL_TZ);

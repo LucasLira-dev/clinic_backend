@@ -1,6 +1,6 @@
 import { CallHandler, ConsoleLogger, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { Observable, tap } from 'rxjs';
+import { Observable, finalize } from 'rxjs';
 
 interface User {
   id: string;
@@ -27,12 +27,12 @@ export class LoggerGlobalInterceptor implements NestInterceptor {
     const timeNow = Date.now();
 
     return next.handle().pipe(
-      tap(() => {
-        if (request.user) {
-          this.logger.log(
-            `Request at: ${request.method}${request.url}, result: ${statusCode} - User: ${request.user?.id} - ${Date.now() - timeNow}ms`,
-          );
-        }
+      finalize(() => {
+        const userId = request.user?.id || 'Anonymous';
+
+        this.logger.log(
+          `${request.method} ${request.url} - ${statusCode} - User: ${userId} - ${Date.now() - timeNow}ms`,
+        );
       }),
     );
   }
