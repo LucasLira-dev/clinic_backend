@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { ConsoleLogger, Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from '@thallesp/nestjs-better-auth';
@@ -17,7 +17,12 @@ import {
   slidingWindow,
 } from '@arcjet/nest';
 import { CustomArcjetGuard } from './guards/arcjet.guard';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { LoggerGlobalInterceptor } from './logger-global/logger-global.interceptor';
+
+const isProduction =
+  process.env.NODE_ENV === 'production' ||
+  process.env.ARCJET_ENV === 'production';
 
 if (!process.env.ARCJET_ENV && process.env.NODE_ENV !== 'test') {
   throw new Error('ARCJET_KEY environment variable is not defined.');
@@ -36,10 +41,10 @@ if (!process.env.ARCJET_ENV && process.env.NODE_ENV !== 'test') {
       characteristics: ['ip.src'],
       rules: [
         // Shield protects your app from common attacks e.g. SQL injection
-        shield({ mode: 'LIVE' }),
+        shield({ mode: isProduction ? 'LIVE' : 'DRY_RUN' }),
         // Create a bot detection rule
         detectBot({
-          mode: 'LIVE', // Blocks requests. Use "DRY_RUN" to log only
+          mode: isProduction ? 'LIVE' : 'DRY_RUN', // Blocks requests. Use "DRY_RUN" to log only
           // Block all bots except the following
           allow: [
             'CATEGORY:SEARCH_ENGINE', // Google, Bing, etc
@@ -47,7 +52,7 @@ if (!process.env.ARCJET_ENV && process.env.NODE_ENV !== 'test') {
           ],
         }),
         slidingWindow({
-          mode: 'LIVE',
+          mode: isProduction ? 'LIVE' : 'DRY_RUN',
           interval: '1m',
           max: 45, // Max 45 requests per minute per IP
         }),
@@ -62,10 +67,19 @@ if (!process.env.ARCJET_ENV && process.env.NODE_ENV !== 'test') {
   providers: [
     AppService,
     MailService,
+    ...(isProduction
+      ? [
+          {
+            provide: APP_GUARD,
+            useClass: CustomArcjetGuard,
+          },
+        ]
+      : []),
     {
-      provide: APP_GUARD,
-      useClass: CustomArcjetGuard,
+      provide: APP_INTERCEPTOR,
+      useClass: LoggerGlobalInterceptor,
     },
+    ConsoleLogger,
   ],
 })
 export class AppModule {}
