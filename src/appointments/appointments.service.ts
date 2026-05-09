@@ -668,6 +668,7 @@ export class AppointmentsService {
                 specialty: { select: { name: true } },
               },
             },
+            id: true,
           },
         },
         patient: {

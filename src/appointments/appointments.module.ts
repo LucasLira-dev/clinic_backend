@@ -3,8 +3,10 @@ import { AppointmentsController } from './appointments.controller';
 import { AppointmentsService } from './appointments.service';
 import { PrismaService } from '../prisma.service';
 import { PatientGuard } from '../guards/patient.guard';
+import { RedisModule } from 'src/redis/redis.module';
 
 @Module({
+  imports: [RedisModule],
   controllers: [AppointmentsController],
   providers: [AppointmentsService, PrismaService, PatientGuard],
 })
