@@ -45,7 +45,12 @@ export class AdminController {
 
   @Delete('users/:userId')
   async deleteUser(@Param('userId') userId: string) {
-    await this.redisService.del('all_doctors');
-    return this.adminService.deleteUser(userId);
+    const result = await this.adminService.deleteUser(userId);
+
+    if (result.userRole === 'doctor') {
+      await this.redisService.del('all_doctors');
+    }
+
+    return result;
   }
 }

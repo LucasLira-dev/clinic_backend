@@ -199,6 +199,10 @@ export class AdminService {
 
     await this.prisma.user.delete({ where: { id: userId } });
 
-    return { success: true, message: 'Usuário removido com sucesso!' };
+    return {
+      success: true,
+      message: 'Usuário removido com sucesso!',
+      userRole: user.role,
+    };
   }
 }

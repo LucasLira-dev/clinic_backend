@@ -59,6 +59,8 @@ export class DoctorController {
   ) {
     await this.redisService.del(`doctor_profile_${session.user.id}`);
     await this.redisService.del('all_doctors');
+    await this.redisService.del(`doctor_details_${session.user.id}`);
+    await this.redisService.del('blog_posts');
     return this.doctorService.updatePhoto(
       session.user.id,
       updateDoctorPhotoDto,
@@ -73,6 +75,8 @@ export class DoctorController {
   ) {
     await this.redisService.del(`doctor_profile_${session.user.id}`);
     await this.redisService.del('all_doctors');
+    await this.redisService.del(`doctor_details_${session.user.id}`);
+    await this.redisService.del('blog_posts');
     return this.doctorService.updateBiography(session.user.id, biography);
   }
 }

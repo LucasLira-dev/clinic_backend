@@ -1,4 +1,10 @@
-import { CallHandler, ConsoleLogger, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
+import {
+  CallHandler,
+  ConsoleLogger,
+  ExecutionContext,
+  Injectable,
+  NestInterceptor,
+} from '@nestjs/common';
 import { Request, Response } from 'express';
 import { Observable, finalize } from 'rxjs';
 
@@ -13,11 +19,9 @@ interface RequestWithUser extends Request {
 
 @Injectable()
 export class LoggerGlobalInterceptor implements NestInterceptor {
-
   constructor(private logger: ConsoleLogger) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-
     const httpContext = context.switchToHttp();
     const request = httpContext.getRequest<Request & RequestWithUser>();
     const response = httpContext.getResponse<Response>();
