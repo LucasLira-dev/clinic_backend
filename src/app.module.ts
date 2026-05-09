@@ -19,6 +19,7 @@ import {
 import { CustomArcjetGuard } from './guards/arcjet.guard';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { LoggerGlobalInterceptor } from './logger-global/logger-global.interceptor';
+import { RedisModule } from './redis/redis.module';
 
 const isProduction =
   process.env.NODE_ENV === 'production' ||
@@ -62,6 +63,7 @@ if (!process.env.ARCJET_ENV && process.env.NODE_ENV !== 'test') {
     AppointmentsModule,
     DoctorModule,
     BlogModule,
+    RedisModule,
   ],
   controllers: [AppController],
   providers: [

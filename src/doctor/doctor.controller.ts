@@ -1,31 +1,49 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Body, Patch, Param, UseGuards } from '@nestjs/common';
 import { DoctorService } from './doctor.service';
-import { CreateDoctorDto } from './dto/create-doctor.dto';
 import { DoctorGuard } from 'src/guards/doctor.guard';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 import { UpdateDoctorPhotoDto } from './dto/update-photo.dto';
+import { RedisService } from 'src/redis/redis.service';
 
 @Controller('doctor')
 export class DoctorController {
-  constructor(private readonly doctorService: DoctorService) {}
+  constructor(
+    private readonly doctorService: DoctorService,
+    private redisService: RedisService,
+  ) {}
 
   @Get()
-  findAll() {
-    return this.doctorService.findAll();
+  async findAll() {
+    const cachedKey = 'all_doctors';
+
+    const cachedDoctors = await this.redisService.get(cachedKey);
+
+    if (cachedDoctors) {
+      return cachedDoctors;
+    }
+
+    const doctors = await this.doctorService.findAll();
+
+    await this.redisService.set(cachedKey, doctors, 60 * 60);
+
+    return doctors;
   }
 
   @Get('doctorProfile/:id')
-  findOneById(@Param('id') id: string) {
-    return this.doctorService.findDoctorProfile(id);
+  async findOneById(@Param('id') id: string) {
+    const cachedKey = `doctor_profile_${id}`;
+
+    const cachedProfile = await this.redisService.get(cachedKey);
+
+    if (cachedProfile) {
+      return cachedProfile;
+    }
+
+    const doctorProfile = await this.doctorService.findDoctorProfile(id);
+
+    await this.redisService.set(cachedKey, doctorProfile, 60 * 30);
+
+    return doctorProfile;
   }
 
   @Get('me')
@@ -39,6 +57,8 @@ export class DoctorController {
     @Body() updateDoctorPhotoDto: UpdateDoctorPhotoDto,
     @Session() session: UserSession,
   ) {
+    await this.redisService.del(`doctor_profile_${session.user.id}`);
+    await this.redisService.del('all_doctors');
     return this.doctorService.updatePhoto(
       session.user.id,
       updateDoctorPhotoDto,
@@ -51,6 +71,8 @@ export class DoctorController {
     @Body('biography') biography: string,
     @Session() session: UserSession,
   ) {
+    await this.redisService.del(`doctor_profile_${session.user.id}`);
+    await this.redisService.del('all_doctors');
     return this.doctorService.updateBiography(session.user.id, biography);
   }
 }

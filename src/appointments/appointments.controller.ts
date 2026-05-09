@@ -1,21 +1,17 @@
-import {
-  Controller,
-  Get,
-  Param,
-  Post,
-  Query,
-  UseGuards,
-  Body,
-} from '@nestjs/common';
+import { Controller, Get, Param, Post, Query, Body } from '@nestjs/common';
 import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
+import { RedisService } from 'src/redis/redis.service';
 
 type AppointmentFilter = 'upcoming' | 'completed' | 'all' | 'canceled';
 
 @Controller('appointments')
 export class AppointmentsController {
-  constructor(private readonly appointmentsService: AppointmentsService) {}
+  constructor(
+    private readonly appointmentsService: AppointmentsService,
+    private redisService: RedisService,
+  ) {}
 
   @Post('book')
   async bookAppointment(
@@ -36,6 +32,7 @@ export class AppointmentsController {
   ) {
     const userId = session.user.id;
     const userRole = session.user.role as 'patient' | 'doctor';
+
     return this.appointmentsService.cancelAppointment(
       appointmentId,
       userId,
@@ -50,6 +47,7 @@ export class AppointmentsController {
   ) {
     const doctorId = session.user.id;
     const userRole = session.user.role as 'patient' | 'doctor';
+
     return this.appointmentsService.completeAppointment(
       appointmentId,
       doctorId,
@@ -66,12 +64,37 @@ export class AppointmentsController {
 
   @Get('doctors')
   async getDoctors() {
-    return this.appointmentsService.getDoctors();
+    const cacheKey = 'all_doctors';
+
+    const cachedDoctors = await this.redisService.get(cacheKey);
+
+    if (cachedDoctors) {
+      return cachedDoctors;
+    }
+
+    const doctors = await this.appointmentsService.getDoctors();
+
+    await this.redisService.set(cacheKey, doctors, 60 * 60);
+
+    return doctors;
   }
 
   @Get('doctor/:id')
   async getDoctorDetails(@Param('id') doctorId: string) {
-    return this.appointmentsService.getDoctorDetails(doctorId);
+    const cacheKey = `doctor_details_${doctorId}`;
+
+    const cachedDoctorDetails = await this.redisService.get(cacheKey);
+
+    if (cachedDoctorDetails) {
+      return cachedDoctorDetails;
+    }
+
+    const doctorDetails =
+      await this.appointmentsService.getDoctorDetails(doctorId);
+
+    await this.redisService.set(cacheKey, doctorDetails, 60 * 60);
+
+    return doctorDetails;
   }
 
   @Get('doctor/:id/available-slots')
@@ -81,11 +104,14 @@ export class AppointmentsController {
     @Session() session: UserSession,
   ) {
     const patientId = session.user.id;
-    return this.appointmentsService.getDoctorAvailableSlots(
+
+    const slots = await this.appointmentsService.getDoctorAvailableSlots(
       doctorId,
       date,
       patientId,
     );
+
+    return slots;
   }
 
   @Get('my-appointments')

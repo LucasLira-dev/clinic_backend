@@ -30,7 +30,9 @@ const SLOT_MINUTES = 30;
 export class AppointmentsService {
   private readonly logger = new Logger(AppointmentsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+  ) {}
 
   private parseDateParts(date: string) {
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
@@ -668,6 +670,7 @@ export class AppointmentsService {
                 specialty: { select: { name: true } },
               },
             },
+            id: true,
           },
         },
         patient: {

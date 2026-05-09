@@ -13,12 +13,16 @@ import { AdminService } from './admin.service';
 import { CreateDoctorDto } from './dto/create-doctor.dto';
 import { AdminGuard } from './guards/admin.guard';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
+import { RedisService } from 'src/redis/redis.service';
 
 // Apenas usuários com role 'admin' podem acessar
 @UseGuards(AdminGuard)
 @Controller('admin')
 export class AdminController {
-  constructor(private adminService: AdminService) {}
+  constructor(
+    private adminService: AdminService,
+    private redisService: RedisService,
+  ) {}
 
   @Post('medicos')
   async createDoctor(
@@ -30,6 +34,7 @@ export class AdminController {
         'Acesso negado. Apenas administradores podem criar médicos.',
       );
     }
+    await this.redisService.del('all_doctors');
     return this.adminService.createDoctor(dto);
   }
 
@@ -40,6 +45,7 @@ export class AdminController {
 
   @Delete('users/:userId')
   async deleteUser(@Param('userId') userId: string) {
+    await this.redisService.del('all_doctors');
     return this.adminService.deleteUser(userId);
   }
 }
