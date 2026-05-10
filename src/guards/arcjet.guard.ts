@@ -9,15 +9,20 @@ import {
 } from '@nestjs/common';
 import { ARCJET } from '@arcjet/nest';
 import type { ArcjetNest } from '@arcjet/nest';
+import { Request } from 'express';
 
 @Injectable()
 export class CustomArcjetGuard implements CanActivate {
   constructor(@Inject(ARCJET) private readonly aj: ArcjetNest) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
+    const request: Request = context.switchToHttp().getRequest();
 
     if (!request) {
+      return true;
+    }
+
+    if (request.path === '/health') {
       return true;
     }
 
